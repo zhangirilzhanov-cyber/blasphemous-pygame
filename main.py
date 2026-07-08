@@ -19,9 +19,11 @@ FPS = 60
 player_rect = pygame.Rect(300, 100, 32, 64)
 player_speed = 4  # How many pixels the player moves per frame
 
-# --- PHYSICS PHYSICS ---
+# --- PHYSICS ---
 player_y_velocity = 0  # Starts at 0 (not falling or jumping yet)
 GRAVITY = 0.5  # The downward acceleration added to velocity every single frame
+JUMP_FORCE = -10  # Negative because moving UP means decreasing Y coordinate
+is_grounded = False  # A tracking flag to ensure we can't jump mid-air
 
 # --- ENVIRONMENT PROPERTIES ---
 # Create a rectangle at X=0, Y=320, stretching across the whole screen (Width=640), and 40 pixels thick
@@ -31,9 +33,14 @@ floor_rect = pygame.Rect(0, 320, 640, 40)
 running = True
 while running:
     # --- PHASE 1: GET INPUT ---
+    space_released_this_frame = False  # track if space/w was lifted rn
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        # Detect when a keyboard key is released
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_SPACE or event.key == pygame.K_w:
+                space_released_this_frame = True
 
     # Get a dictionary of all keyboard keys currently being held down
     keys = pygame.key.get_pressed()
@@ -59,12 +66,25 @@ while running:
     player_y_velocity += GRAVITY  # Gravity accelerates your velocity down
     player_rect.y += player_y_velocity  # Move the player's Y position by that velocity
 
+    # 2. Variable Jump Height Limit Check
+    # If the player is moving UP (velocity < 0) AND they let go of the jump key...
+    if player_y_velocity < 0 and space_released_this_frame:
+        # Cut their upward speed in half! (e.g., changes -8 to -4)
+        # This acts as your limit cap, giving an instant low jump.
+        player_y_velocity *= 0.5
+    is_grounded = False
+
     # Collision Detection with the Floor
     # .colliderect checks if the player box is physically overlapping the floor box
     if player_rect.colliderect(floor_rect):
         # If we hit the floor, snap the player's bottom right to the top of the floor
         player_rect.bottom = floor_rect.top
         player_y_velocity = 0  # Kill the downward velocity so we stop falling
+        is_grounded = True
+
+    if (keys[pygame.K_SPACE] or keys[pygame.K_w]) and is_grounded:
+        player_y_velocity = JUMP_FORCE  # Launch upwards!
+        is_grounded = False
 
     # --- PHASE 3: RENDER (DRAW) ---
     screen.fill((40, 30, 45))  # Clear screen with dark purple
