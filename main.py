@@ -144,3 +144,5 @@ while running:
     
     # Maintain frame rate
     clock.tick(FPS)
+
+    ############################################################Now we add the knight model. He will have the existent rectangle hitbox tho
