@@ -1,148 +1,279 @@
-import pygame
 import sys
+import pygame
+from level import Level
+from player import Player, InputState
 
 # --- 1. ENGINE SETUP ---
 pygame.init()
-SCREEN_WIDTH = 640
-SCREEN_HEIGHT = 360
+SCREEN_WIDTH, SCREEN_HEIGHT = 640, 360
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("My Blasphemous Project")
 
 clock = pygame.time.Clock()
 FPS = 60
 
-# --- 2. GAME STATE (VARIABLES) ---
-player_rect = pygame.Rect(300, 100, 32, 64)
-player_speed = 4  
+# --- 2. GAME OBJECTS & FONTS ---
+font = pygame.font.SysFont("arial", 32, bold=True)
+small_font = pygame.font.SysFont("arial", 16)
 
-player_y_velocity = 0  
-GRAVITY = 0.5           
-JUMP_FORCE = -11       
-is_grounded = False    
+defeated_enemies: set[str] = set()
+current_level = Level("room_1", defeated_enemies)
+current_level.load_room("room_1", defeated_enemies)
 
-# --- DASH MECHANIC ---
-player_facing_right = True  # Track direction so we dash the right way
-is_dashing = False          # Are we currently in a dash state?
-dash_timer = 0              # How long the dash lasts (in frames)
-DASH_DURATION = 10          # Dash lasts for 10 frames (~0.16 seconds)
-DASH_SPEED = 12             # Triple our normal speed!
-dash_cooldown = 0           # Current cooldown timer (0 means ready to dash)
-DASH_COOLDOWN_TIME = 45     #  Cooldown lasts 45 frames (~0.75 seconds)
+player = Player(300, 100)
 
-floor_rect = pygame.Rect(0, 320, 640, 40)
+a_press_time = 0
+d_press_time = 0
 
-# --- 3. MODULAR LOGIC BLOCKS (FUNCTIONS) ---
 
-def handle_input():
-    """Handles keyboard presses and returns input flags."""
-    global player_y_velocity, is_grounded, player_facing_right, is_dashing, dash_timer
-    
+def gather_inputs(events):
+    """Builds a frame-accurate snapshot of all keys and mouse inputs."""
+    global a_press_time, d_press_time
+
+    inputs = InputState()
     keys = pygame.key.get_pressed()
-    space_released_this_frame = False
-    
-    for event in pygame.event.get():
+    current_time = pygame.time.get_ticks()
+
+    inputs.up_held = keys[pygame.K_w]
+
+    for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-            
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_w:
+                current_level.interact_with_items(player)
+            if event.key == pygame.K_a:
+                a_press_time = current_time
+            if event.key == pygame.K_d:
+                d_press_time = current_time
+
+            if event.key == pygame.K_SPACE:
+                inputs.jump_requested = True
+            if event.key == pygame.K_LSHIFT:
+                inputs.dash_pressed = True
+            if event.key == pygame.K_RETURN:
+                inputs.attack_pressed = True
+            if event.key == pygame.K_u:
+                inputs.toggle_dash = True
+
         if event.type == pygame.KEYUP:
-            if event.key == pygame.K_SPACE or event.key == pygame.K_w:
-                space_released_this_frame = True
+            if event.key == pygame.K_SPACE:
+                inputs.space_released = True
 
-    # If currently dashing, freeze regular keyboard inputs!
-    if is_dashing:
-        return space_released_this_frame
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            inputs.attack_pressed = True
 
-    # Horizontal Movement & Tracking Direction
-    if keys[pygame.K_a]:
-        player_rect.x -= player_speed
-        player_facing_right = False  # Facing Left
-    if keys[pygame.K_d]:
-        player_rect.x += player_speed
-        player_facing_right = True   # Facing Right
+    # Horizontal Movement Priority
+    a_held = keys[pygame.K_a]
+    d_held = keys[pygame.K_d]
 
-    # Trigger Dash (Left Shift)
-    if keys[pygame.K_LSHIFT] and dash_cooldown == 0:
-        is_dashing = True
-        dash_timer = DASH_DURATION
-        # Give an instant burst of speed in the direction we are facing
-        player_y_velocity = 0  # Clear any falling momentum when dash starts
-
-    # Initial Jump Trigger
-    if (keys[pygame.K_SPACE] or keys[pygame.K_w]) and is_grounded:
-        player_y_velocity = JUMP_FORCE
-        is_grounded = False
-
-    return space_released_this_frame
-
-
-def update_physics(space_released_this_frame):
-    """Calculates gravity, variable jump capping, and collisions."""
-    global player_y_velocity, is_grounded, is_dashing, dash_timer, dash_cooldown
-
-    # 🌟 Handle Dash Physics State
-    if is_dashing:
-        # Move character at high speed based on direction
-        if player_facing_right:
-            player_rect.x += DASH_SPEED
+    if a_held and d_held:
+        if a_press_time > d_press_time:
+            inputs.move_left = True
         else:
-            player_rect.x -= DASH_SPEED
-            
-        dash_timer -= 1  # Countdown the frames
-        if dash_timer <= 0:
-            is_dashing = False  # Dash finished, return to regular state
-            dash_cooldown = DASH_COOLDOWN_TIME # 🌟 Start the cooldown penalty now!
-            
-        # Keep character bound to the screen limits during dash
-        if player_rect.left < 0: 
-            player_rect.left = 0
-        if player_rect.right > SCREEN_WIDTH:    
-            player_rect.right = SCREEN_WIDTH
-        return  # Bypass gravity and floor calculations while dashing!
+            inputs.move_right = True
+    elif a_held:
+        inputs.move_left = True
+    elif d_held:
+        inputs.move_right = True
 
-    #Regular Physics State (runs only if NOT dashing)
+    return inputs
+
+
+def draw_health_ui(surface, current_hp, max_hp):
+    """Draws heart indicators in the top-left corner of the screen."""
+    start_x = 16
+    start_y = 16
+    spacing = 20
+
+    for i in range(max_hp):
+        x = start_x + (i * spacing)
+        y = start_y
+
+        if i < current_hp:
+            # Filled Red Heart
+            pygame.draw.rect(surface, (220, 50, 50), (x, y, 6, 6))
+            pygame.draw.rect(surface, (220, 50, 50), (x + 6, y, 6, 6))
+            pygame.draw.polygon(
+                surface, (220, 50, 50), [(x, y + 4), (x + 12, y + 4), (x + 6, y + 12)]
+            )
+        else:
+            # Empty Heart Outline
+            pygame.draw.polygon(
+                surface,
+                (80, 60, 70),
+                [(x, y), (x + 12, y), (x + 12, y + 6), (x + 6, y + 12), (x, y + 6)],
+                width=2,
+            )
+
+
+def draw_game_over_ui(surface):
+    """Renders semi-transparent overlay and death prompt."""
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    overlay.set_alpha(180)
+    overlay.fill((20, 10, 15))
+    surface.blit(overlay, (0, 0))
+
+    text = font.render("YOU DIED", True, (220, 40, 40))
+    prompt = small_font.render("Press SPACE or ENTER to Respawn", True, (200, 200, 200))
+
+    surface.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, 130))
+    surface.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 180))
+
+
+def check_pitfalls_and_transitions(player, level, screen_width, screen_height, defeated_enemies):
+    """Handles 4-way transitions with explicit safe spawn points."""
     
-    # Countdown our recovery cooldown frame by frame until it hits 0
-    if dash_cooldown > 0:
-        dash_cooldown -= 1
-    
-    # Apply Gravity
-    player_y_velocity += GRAVITY
-    player_rect.y += player_y_velocity
+    # Block transitions while boss is locked
+    if getattr(level, "is_locked", False):
+        if player.rect.left < 0:
+            player.rect.left = 0
+            player.pos_x = float(player.rect.x)
+        elif player.rect.right > screen_width:
+            player.rect.right = screen_width
+            player.pos_x = float(player.rect.x)
+        if player.rect.top < 0:
+            player.rect.top = 0
+            player.pos_y = float(player.rect.y)
+        return
 
-    # Variable Jump Height Limit Check
-    if player_y_velocity < 0 and space_released_this_frame:
-        player_y_velocity *= 0.5 
+    # --- UPWARD TRANSITION (Climbing out of room_4 into room_3) ---
+    if player.rect.bottom < 0:
+        next_room = level.exits.get("up")
+        if next_room:
+            level.load_room(next_room, defeated_enemies)
+            
+            # Check for hardcoded spawn point in JSON
+            spawn = getattr(level, "spawns", {}).get("from_down")
+            if spawn:
+                player.pos_x = float(spawn["x"])
+                player.pos_y = float(spawn["y"])
+                player.rect.x = round(player.pos_x)
+                player.rect.y = round(player.pos_y)
+            else:
+                player.rect.bottom = screen_height - 10
+                player.pos_y = float(player.rect.y)
+            
+            player.y_velocity = 0.0
+            player.last_grounded_pos = (player.rect.x, player.rect.y)
+        else:
+            player.rect.top = 0
+            player.pos_y = float(player.rect.y)
+        return
 
-    # Floor Collision Logic
-    is_grounded = False
-    if player_rect.colliderect(floor_rect):
-        player_rect.bottom = floor_rect.top
-        player_y_velocity = 0
-        is_grounded = True
+    # --- DOWNWARD TRANSITION ---
+    if player.rect.top > screen_height:
+        next_room = level.exits.get("down")
+        if next_room:
+            level.load_room(next_room, defeated_enemies)
+            
+            spawn = getattr(level, "spawns", {}).get("from_up")
+            if spawn:
+                player.pos_x = float(spawn["x"])
+                player.pos_y = float(spawn["y"])
+                player.rect.x = round(player.pos_x)
+                player.rect.y = round(player.pos_y)
+            else:
+                player.rect.top = 0
+                player.pos_y = float(player.rect.y)
+                
+            player.last_grounded_pos = (player.rect.x, player.rect.y)
+        else:
+            player.take_damage(1)
+            player.respawn()
+        return
+
+    # --- HORIZONTAL TRANSITIONS ---
+    if player.rect.left > screen_width:
+        next_room = level.exits.get("right")
+        if next_room:
+            level.load_room(next_room, defeated_enemies)
+            
+            spawn = getattr(level, "spawns", {}).get("from_left")
+            if spawn:
+                player.pos_x = float(spawn["x"])
+                player.pos_y = float(spawn["y"])
+                player.rect.x = round(player.pos_x)
+                player.rect.y = round(player.pos_y)
+            else:
+                player.rect.left = 0
+                player.pos_x = float(player.rect.x)
+                
+            player.last_grounded_pos = (player.rect.x, player.rect.y)
+
+    elif player.rect.right < 0:
+        next_room = level.exits.get("left")
+        if next_room:
+            level.load_room(next_room, defeated_enemies)
+            
+            spawn = getattr(level, "spawns", {}).get("from_right")
+            if spawn:
+                player.pos_x = float(spawn["x"])
+                player.pos_y = float(spawn["y"])
+                player.rect.x = round(player.pos_x)
+                player.rect.y = round(player.pos_y)
+            else:
+                player.rect.right = screen_width
+                player.pos_x = float(player.rect.x)
+                
+            player.last_grounded_pos = (player.rect.x, player.rect.y)
 
 
-def render_screen():
-    """Wipes the display buffer and draws all objects from zero."""
-    screen.fill((40, 30, 45))                      # Dark Purple Background
-    pygame.draw.rect(screen, (75, 60, 80), floor_rect)    # Ash Gray Floor
-    pygame.draw.rect(screen, (220, 60, 60), player_rect)  # Crimson Knight Box
-    pygame.display.flip()                          # Double Buffer Flip
-
-
-# --- 4. THE MAIN GAME LOOP ---
+# --- 3. MAIN GAME LOOP ---
 running = True
-while running:
-    # Phase 1: Get Input
-    space_released = handle_input()
-    
-    # Phase 2: Update positions/physics
-    update_physics(space_released)
-    
-    # Phase 3: Draw everything
-    render_screen()
-    
-    # Maintain frame rate
-    clock.tick(FPS)
+game_over = False
 
-    ############################################################Now we add the knight model. He will have the existent rectangle hitbox tho
+while running:
+    events = pygame.event.get()
+
+    if game_over:
+        # Check for restart press
+        for event in events:
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and (
+                event.key == pygame.K_SPACE or event.key == pygame.K_RETURN
+            ):
+                # Reset game state & player back to room 1
+                current_level.load_room("room_1", defeated_enemies)
+                player.hp = player.max_hp
+                player.invulnerable = False
+                player.rect.topleft = (300, 100)
+                player.last_grounded_pos = (300, 100)
+                player.y_velocity = 0
+                game_over = False
+    else:
+        # Normal Gameplay Loop
+        inputs = gather_inputs(events)
+
+        space_released = player.handle_input(inputs)
+        player.update(space_released, current_level)
+
+        # Phase 2 & 3: Game State & Enemy AI Updates
+
+        current_level.update(player, SCREEN_WIDTH)  # Run enemy vision, patrol, & physics
+        current_level.update_combat(player, defeated_enemies)
+
+        check_pitfalls_and_transitions(
+            player, current_level, SCREEN_WIDTH, SCREEN_HEIGHT, defeated_enemies
+        )
+
+        # Trigger Game Over condition
+        if player.hp <= 0:
+            game_over = True
+
+    # Render Phase
+    screen.fill((40, 30, 45))
+    current_level.draw(screen)
+    player.draw(screen)
+    draw_health_ui(screen, player.hp, player.max_hp)
+
+    if game_over:
+        draw_game_over_ui(screen)
+        defeated_enemies.clear()
+
+    pygame.display.flip()
+    clock.tick(FPS)

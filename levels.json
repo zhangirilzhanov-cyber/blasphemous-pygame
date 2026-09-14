@@ -1,0 +1,54 @@
+{
+  "room_1": {
+    "exits": { "right": "room_2" },
+    "floors": [
+      {"x": 0, "y": 320, "w": 640, "h": 40}
+    ],
+    "enemies": [
+      {"id": "r1_enemy_1", "x": 450, "y": 280, "w": 32, "h": 40, "hp": 3}
+    ]
+  },
+  "room_2": {
+    "exits": { "left": "room_1", "right": "room_3" },
+    "floors": [
+      {"x": 0, "y": 320, "w": 200, "h": 40},
+      {"x": 280, "y": 260, "w": 180, "h": 40},
+      {"x": 500, "y": 320, "w": 140, "h": 40}
+    ],
+    "enemies": [
+      {"id": "r2_enemy_1", "x": 320, "y": 220, "w": 32, "h": 40, "hp": 2},
+      {"id": "r2_enemy_2", "x": 550, "y": 280, "w": 32, "h": 40, "hp": 4}
+    ]
+  },
+  "room_3": {
+    "exits": { "left": "room_2", "right": "room_5", "down": "room_4" },
+    "spawns": {
+      "from_down": {"x": 50, "y": 275},
+      "from_left": {"x": 20, "y": 275},
+      "from_right": {"x": 580, "y": 275}
+    },
+    "floors": [
+      {"x": 0, "y": 320, "w": 100, "h": 40},
+      {"x": 480, "y": 320, "w": 160, "h": 40}
+    ],
+    "enemies": [],
+    "signs": [
+      { "x": 60, "y": 288, "text": "Leap of Faith: Descent Ahead" }
+    ]
+  },
+  "room_4": {
+    "exits": { "up": "room_3" },
+    "floors": [
+      {"x": 0, "y": 320, "w": 640, "h": 40}
+    ],
+    "items": [
+      {"x": 120, "y": 280, "type": "dash"}
+    ],
+    "enemies": [
+      {"id": "r4_boss", "x": 480, "y": 240, "type": "boss"}
+    ],
+    "signs": [
+      {"x": 50, "y": 288, "text": "Dash through incoming strikes [Shift]"}
+    ]
+  }
+}
