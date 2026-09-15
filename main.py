@@ -1,9 +1,11 @@
 import sys
-import pygame
-from level import Level
-from player import Player, InputState
 
-# --- 1. ENGINE SETUP ---
+import pygame
+
+from level import Level
+from player import InputState, Player
+
+# ENGINE SETUP 
 pygame.init()
 SCREEN_WIDTH, SCREEN_HEIGHT = 640, 360
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -12,7 +14,7 @@ pygame.display.set_caption("My Blasphemous Project")
 clock = pygame.time.Clock()
 FPS = 60
 
-# --- 2. GAME OBJECTS & FONTS ---
+#  GAME OBJECTS & FONTS
 font = pygame.font.SysFont("arial", 32, bold=True)
 small_font = pygame.font.SysFont("arial", 16)
 
@@ -58,9 +60,8 @@ def gather_inputs(events):
             if event.key == pygame.K_u:
                 inputs.toggle_dash = True
 
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_SPACE:
-                inputs.space_released = True
+        if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+            inputs.space_released = True
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             inputs.attack_pressed = True
@@ -124,7 +125,7 @@ def draw_game_over_ui(surface):
 
 
 def check_pitfalls_and_transitions(player, level, screen_width, screen_height, defeated_enemies):
-    """Handles 4-way transitions with explicit safe spawn points."""
+    """Handles 4-way transitions with explicit safe spawn points"""
     
     # Block transitions while boss is locked
     if getattr(level, "is_locked", False):
@@ -139,7 +140,7 @@ def check_pitfalls_and_transitions(player, level, screen_width, screen_height, d
             player.pos_y = float(player.rect.y)
         return
 
-    # --- UPWARD TRANSITION (Climbing out of room_4 into room_3) ---
+    # UPWARD TRANSITION (Climbing out of room_4 into room_3) - not done well yet
     if player.rect.bottom < 0:
         next_room = level.exits.get("up")
         if next_room:
@@ -163,7 +164,7 @@ def check_pitfalls_and_transitions(player, level, screen_width, screen_height, d
             player.pos_y = float(player.rect.y)
         return
 
-    # --- DOWNWARD TRANSITION ---
+    # DOWNWARD TRANSITION
     if player.rect.top > screen_height:
         next_room = level.exits.get("down")
         if next_room:
@@ -185,7 +186,7 @@ def check_pitfalls_and_transitions(player, level, screen_width, screen_height, d
             player.respawn()
         return
 
-    # --- HORIZONTAL TRANSITIONS ---
+    # HORIZONTAL TRANSITIONS 
     if player.rect.left > screen_width:
         next_room = level.exits.get("right")
         if next_room:
@@ -221,7 +222,7 @@ def check_pitfalls_and_transitions(player, level, screen_width, screen_height, d
             player.last_grounded_pos = (player.rect.x, player.rect.y)
 
 
-# --- 3. MAIN GAME LOOP ---
+# MAIN GAME LOOP
 running = True
 game_over = False
 
@@ -252,7 +253,7 @@ while running:
         space_released = player.handle_input(inputs)
         player.update(space_released, current_level)
 
-        # Phase 2 & 3: Game State & Enemy AI Updates
+        # Phase 2, 3: Game State & Enemy AI Updates
 
         current_level.update(player, SCREEN_WIDTH)  # Run enemy vision, patrol, & physics
         current_level.update_combat(player, defeated_enemies)

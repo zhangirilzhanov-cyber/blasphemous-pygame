@@ -1,8 +1,11 @@
 import json
+
 import pygame
-from enemy import Enemy, Boss
-from sign import Sign
+
+from enemy import Boss, Enemy
 from item import Item
+from sign import Sign
+
 
 class Level:
     def __init__(self, room_id, defeated_enemies):
@@ -65,7 +68,7 @@ class Level:
         was_locked = getattr(self, "is_locked", False)
         self.is_locked = any(isinstance(e, Boss) for e in self.enemies)
 
-        # 🌟 Trigger platform spawn when the boss is defeated!
+        # Trigger platform spawn when the boss is defeated
         if was_locked and not self.is_locked:
             self.spawn_exit_platforms()
 
@@ -94,13 +97,13 @@ class Level:
         for item in self.items[:]:
             if item.is_player_near:
                 if item.item_type == "dash":
-                    player.has_dash = True  # Unlock dash upgrade!
+                    player.has_dash = True  # Unlock dash upgrade
                 self.items.remove(item)
 
     def update_combat(self, player, defeated_enemies):
         if player.attack_rect:
             for enemy in self.enemies[:]:
-                if player.attack_rect.colliderect(enemy.rect):
+                if player.attack_rect.colliderect(enemy.rect):  
                     if not enemy.invulnerable:
                         direction = 1 if enemy.rect.centerx > player.rect.centerx else -1
                         if player.attack_type == "upslash":
@@ -110,8 +113,8 @@ class Level:
 
                         is_dead = enemy.take_damage(1)
                         if is_dead:
-                            # 🌟 Add unique ID to persistent set upon death
-                            if enemy.enemy_id:
+                            # Add unique ID to persistent set upon death
+                            if enemy.enemy_id: # Can add more incapsulation in the future
                                 defeated_enemies.add(enemy.enemy_id)
                             self.enemies.remove(enemy)
 

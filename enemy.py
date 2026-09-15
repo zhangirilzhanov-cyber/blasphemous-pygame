@@ -44,7 +44,7 @@ class Enemy:
         self.i_frame_timer = 0
         self.I_FRAME_DURATION = 15 
 
-        # 🌟 Stun & Knockback Parameters
+        # Stun & Knockback Parameters
         self.is_stunned = False
         self.stun_timer = 0
         self.x_velocity = 0.0
@@ -84,13 +84,13 @@ class Enemy:
                 self.direction = -1
 
     def update(self, player, level, screen_width):
-        # --- 0. IMMUNITY & STUN TIMERS ---
+        # IMMUNITY and STUN TIMERS 
         if self.invulnerable:
             self.i_frame_timer -= 1
             if self.i_frame_timer <= 0:
                 self.invulnerable = False
 
-        # 🌟 Handle Stun Recovery
+        # Handle Stun Recovery
         if self.is_stunned:
             self.stun_timer -= 1
             if self.stun_timer <= 0:
@@ -112,9 +112,9 @@ class Enemy:
                     self.rect.bottom = collided_floor.top
                     self.pos_y = float(self.rect.y)
                     self.y_velocity = 0.0
-                return  # 🛑 Skip AI/attack logic while stunned!
+                return  # Skip AI/attack logic while stunned
 
-        # --- 1. NORMAL AI & ATTACK LOGIC ---
+        # --- 1. NORMAL AI and ATTACK LOGIC ---
         distance_to_player = pygame.math.Vector2(self.rect.center).distance_to(player.rect.center)
         self.is_chasing = distance_to_player <= self.detection_radius
 
@@ -129,10 +129,9 @@ class Enemy:
                 if self.attack_timer <= 0:
                     self.attack_state = "cooldown"
                     self.attack_timer = self.COOLDOWN_FRAMES
-            elif self.attack_state == "cooldown":
-                if self.attack_timer <= 0:
-                    self.is_attacking = False
-                    self.attack_state = "idle"
+            elif self.attack_state == "cooldown" and self.attack_timer <= 0:
+                self.is_attacking = False
+                self.attack_state = "idle"
         else:
             if distance_to_player <= self.attack_range:
                 self.is_attacking = True
@@ -142,7 +141,7 @@ class Enemy:
                 self.direction = 1 if dx > 0 else -1
             elif self.is_chasing:
                 dx = player.rect.centerx - self.rect.centerx
-                if abs(dx) > 2:
+                if abs(dx) > 2:     #otherwise it would jitter in the player 
                     move_dir = 1 if dx > 0 else -1
                     self.pos_x += move_dir * self.speed
                     self.direction = move_dir
@@ -156,7 +155,7 @@ class Enemy:
 
         self.rect.x = round(self.pos_x)
 
-        # Physics & Gravity
+        # pysics and gravity
         self.y_velocity += self.gravity
         self.pos_y += self.y_velocity
         self.rect.y = round(self.pos_y)
@@ -172,7 +171,7 @@ class Enemy:
         self.clamp_to_screen(screen_width)
 
     def draw(self, screen):
-        if self.invulnerable and (self.i_frame_timer // 3) % 2 == 0:
+        if self.invulnerable and (self.i_frame_timer // 3) % 2 == 0: # Blinking math for ticks
             pygame.draw.rect(screen, (255, 255, 255), self.rect)
             return
 

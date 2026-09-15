@@ -1,5 +1,7 @@
-import pygame
 import math
+
+import pygame
+
 
 class Item:
     def __init__(self, x, y, item_type="dash"):
